@@ -2,7 +2,7 @@
 Documenting my work as I progressed through Kaggle's Advanced SQL course
 
 ## JOINs and UNIONs
-This section used the Stack Overflow public dataset available on BigQuery
+This section uses the Stack Overflow public dataset available on BigQuery
 ### Exercise 1
 #### Question 1
 How long does it take for questions to receive answers on Stack Overflow?
@@ -58,7 +58,7 @@ FROM (
 );
 ```
 ## Analytic Functions (a.k.a window functions)
-This section used the Chicago Taxi Trips public dataset available on BigQuery
+This section uses the Chicago Taxi Trips public dataset available on BigQuery
 #### Notes:
 All analytic functions have an OVER clause which has three optional parts:
 1. PARTITION BY clause: this divides rows of a table into different groups (i.e. if you have an id assigned to individuals in a table, you may want to partition by id in an analytic function)
@@ -147,4 +147,7 @@ WHERE DATE(trip_start_timestamp) = '2013-10-03'
 ORDER BY taxi_id
 ```
 To finish the TIMESTAMP_DIFF call I added lag(trip_end_timestamp) so that the timestamp difference calculates the difference in minutes between a taxi id's start time for a ride and it's previous ride's end time. LAG functions are window functions so it is immediately followed with an OVER clause, in which I filled in the designations from the directions about partitioning by taxi_id and ordering by trip_start_timestamp to find the time difference per ride for each taxi's rides in order of trip start time. WHERE filters so that the query only returns rides started on October 3 2013 and lastly, I ordered results by taxi_id.
-
+## Nested and Repeated Data
+This section uses the github_repos public dataset available on BigQuery
+To query repeated data the column containing that data needs to be used with the UNNEST function
+STRCTs are used to avoid expensive JOINs
