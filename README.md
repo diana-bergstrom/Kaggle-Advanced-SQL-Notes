@@ -58,21 +58,23 @@ FROM (
 );
 ```
 ## Analytic Functions (a.k.a window functions)
+This section used the Chicago Taxi Trips public dataset available on BigQuery
+#### Notes:
 All analytic functions have an OVER clause which has three optional parts:
-1. PARTITION BY clause: divides rows of a table into different groups (i.e. if you have an id assigned to individuals in a table, you may want to partition by id in an analytic function)
+1. PARTITION BY clause: this divides rows of a table into different groups (i.e. if you have an id assigned to individuals in a table, you may want to partition by id in an analytic function)
   *if there is no PARTITION BY clause the query will treat the table as a single partition
 2. ORDER BY clause: defines an ordering within each partition (i.e. if you have dates stored in the table you are querying you may want to order chronologically)
-3. window frame clause: identifies the set of rows used in each calculation; can be written many ways
+3. window frame clause: identifies the set of rows used in each calculation - can be written many ways - examples:
   a. ROWS BETWEEN x PRECEEDING AND CURRENT ROW: x number of previous rows and the current row
   b. ROWS BETWEEN x PRECEEDING AND y following: x number of previous rows and y number of following rows
   c. ROWS BETWEEN UNBOUNDED PRECEEDING AND UNBOUNDED FOLLOWING: all rows in the partition
-There are different types of analytic function, but three common ones are
+There are different types of analytic functions, but three common ones are:
   1. Analytic aggregate functions
   2. Analytic navigation functions
   3. Analytic numbering functions
 #### Question 1
 Say you work for a taxi company, and you're interested in predicting the demand for taxis. Towards this goal, you'd like to create a plot that shows a rolling average of the daily number of taxi trips. Return a data frame with columns for:
-  1. trip_date - contains one entry for each date from January 1, 2016, to March 31, 2016.
+  1. trip_date - contains one entry for each date from January 1, 2016, to March 31, 2016
   2. avg_num_trips - shows the average number of daily trips, calculated over a window including the value for the current date, along with the values for the preceding 3 days and the following 3 days, as long as the days fit within the three-month time frame
 ```
 WITH trips_by_day AS
@@ -92,4 +94,22 @@ WITH trips_by_day AS
                                ) AS avg_num_trips
                       FROM trips_by_day
 ```
-                      
+This query creates a CTE (common table expression) for the number of trips between January 1 2016 and March 31 2016. Then, from that data, it returns the trip date and average number of daily trips calculated over a window of 3 days before and 3 days after any given date (provided that these dates are still within the Jan - March timeframe from the CTE)
+#### Question 2:
+Separate and order trips by community area for October 3rd 2013. Return a DataFrame with: pickup_community_area, trip_start_timestamp, trip_end_timestamp, and trip_number, where trip_number shows the order in which the trips were taken from their respective community areas. Use the RANK() function to answer this question.
+```
+WITH community_rank AS(
+  SELECT pickup_community_area, trip_start_timestamp, trip_end_timestamp
+  FROM `bigquery-public-data.chicago_taxi_trips.taxi_trips`
+  ORDER BY pickup_community_area
+)
+SELECT pickup_community_area,
+                        trip_start_timestamp,
+                        trip_end_timestamp,
+                        RANK() OVER (PARTITION BY pickup_community_area ORDER BY trip_start_timestamp) AS trip_number
+                    FROM community_rank
+                    WHERE DATE(trip_start_timestamp) = '2013-10-03'
+                    ORDER BY pickup_community_area
+```
+To return the desired results, I first created a subquery with a CTE that orders the data I want by pickup_community_area. The next step was to pull the data I wanted from the subquery which included three columns in the original table of the dataset (pickup_community_area, trip_start_timestamp, trip_end_timestamp) as well as trip_number. I had to create the trip_number column using the RANK() window funciton, which ranks the trips within the pickup_community area based on the trip_start_timestamp of each trip. Finally, I ordered by pickup_community_area to sort the results based on the pickup_community_area.
+
