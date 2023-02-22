@@ -78,21 +78,23 @@ Say you work for a taxi company, and you're interested in predicting the demand 
   2. avg_num_trips - shows the average number of daily trips, calculated over a window including the value for the current date, along with the values for the preceding 3 days and the following 3 days, as long as the days fit within the three-month time frame
 ```
 WITH trips_by_day AS
-                      (
-                      SELECT DATE(trip_start_timestamp) AS trip_date,
-                          COUNT(*) as num_trips
-                      FROM `bigquery-public-data.chicago_taxi_trips.taxi_trips`
-                      WHERE trip_start_timestamp > '2016-01-01' AND trip_start_timestamp < '2016-04-01'
-                      GROUP BY trip_date
-                      ORDER BY trip_date
-                      )
-                      SELECT trip_date,
-                          AVG(num_trips)
-                          OVER (
-                               ORDER BY trip_date
-                               ROWS BETWEEN 3 PRECEDING AND 3 FOLLOWING
-                               ) AS avg_num_trips
-                      FROM trips_by_day
+  (
+     SELECT 
+      DATE(trip_start_timestamp) AS trip_date,
+      COUNT(*) as num_trips
+     FROM `bigquery-public-data.chicago_taxi_trips.taxi_trips`
+     WHERE trip_start_timestamp > '2016-01-01' AND trip_start_timestamp < '2016-04-01'
+     GROUP BY trip_date
+     ORDER BY trip_date
+     )
+      SELECT 
+        trip_date,
+       AVG(num_trips)
+        OVER (
+        ORDER BY trip_date
+        ROWS BETWEEN 3 PRECEDING AND 3 FOLLOWING
+        ) AS avg_num_trips
+      FROM trips_by_day
 ```
 This query creates a CTE (common table expression) for the number of trips between January 1 2016 and March 31 2016. Then, from that data, it returns the trip date and average number of daily trips calculated over a window of 3 days before and 3 days after any given date (provided that these dates are still within the Jan - March timeframe from the CTE)
 #### Question 2:
@@ -103,13 +105,46 @@ WITH community_rank AS(
   FROM `bigquery-public-data.chicago_taxi_trips.taxi_trips`
   ORDER BY pickup_community_area
 )
-SELECT pickup_community_area,
-                        trip_start_timestamp,
-                        trip_end_timestamp,
-                        RANK() OVER (PARTITION BY pickup_community_area ORDER BY trip_start_timestamp) AS trip_number
-                    FROM community_rank
-                    WHERE DATE(trip_start_timestamp) = '2013-10-03'
-                    ORDER BY pickup_community_area
+  SELECT pickup_community_area,
+    trip_start_timestamp,
+    trip_end_timestamp,
+    RANK() OVER (PARTITION BY pickup_community_area ORDER BY trip_start_timestamp) AS trip_number
+  FROM community_rank
+  WHERE DATE(trip_start_timestamp) = '2013-10-03'
+  ORDER BY pickup_community_area
 ```
 To return the desired results, I first created a subquery with a CTE that orders the data I want by pickup_community_area. The next step was to pull the data I wanted from the subquery which included three columns in the original table of the dataset (pickup_community_area, trip_start_timestamp, trip_end_timestamp) as well as trip_number. I had to create the trip_number column using the RANK() window funciton, which ranks the trips within the pickup_community area based on the trip_start_timestamp of each trip. Finally, I ordered by pickup_community_area to sort the results based on the pickup_community_area.
+#### Question 3
+The challenge presents the following partial query:
+```
+ SELECT taxi_id,
+  trip_start_timestamp,
+  trip_end_timestamp,
+  TIMESTAMP_DIFF(
+    trip_start_timestamp, 
+    ____
+    OVER (
+      PARTITION BY ____
+      ORDER BY ____),
+     MINUTE) as prev_break
+FROM `bigquery-public-data.chicago_taxi_trips.taxi_trips`
+WHERE DATE(trip_start_timestamp) = '2013-10-03' 
+```
+The task is to find how much time elapses between trips by editing the query to include an additional prev_break column that shows the length of the break (in minutes) that the driver had before each trip started (which corresponds to the time between trip_start_timestamp of the current trip and trip_end_timestamp of the previous trip). The challenge specifies to partition the calculation by taxi_id, and order the results within each partition by trip_start_timestamp.
+```
+SELECT taxi_id,
+  trip_start_timestamp,
+  trip_end_timestamp,
+  TIMESTAMP_DIFF(
+    trip_start_timestamp,
+    LAG(trip_end_timestamp)
+      OVER (
+        PARTITION BY taxi_id
+        ORDER BY trip_start_timestamp),
+    MINUTE) as prev_break
+FROM `bigquery-public-data.chicago_taxi_trips.taxi_trips`
+WHERE DATE(trip_start_timestamp) = '2013-10-03' 
+ORDER BY taxi_id
+```
+To finish the TIMESTAMP_DIFF call I added lag(trip_end_timestamp) so that the timestamp difference calculates the difference in minutes between a taxi id's start time for a ride and it's previous ride's end time. LAG functions are window functions so it is immediately followed with an OVER clause, in which I filled in the designations from the directions about partitioning by taxi_id and ordering by trip_start_timestamp to find the time difference per ride for each taxi's rides in order of trip start time. WHERE filters so that the query only returns rides started on October 3 2013 and lastly, I ordered results by taxi_id.
 
