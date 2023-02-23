@@ -1,6 +1,5 @@
 # Kaggle-Advanced-SQL
 Documenting my work as I progressed through Kaggle's Advanced SQL course
-
 ## JOINs and UNIONs
 This section uses the Stack Overflow public dataset available on BigQuery
 ### Exercise 1
@@ -148,6 +147,62 @@ ORDER BY taxi_id
 ```
 To finish the TIMESTAMP_DIFF call I added lag(trip_end_timestamp) so that the timestamp difference calculates the difference in minutes between a taxi id's start time for a ride and it's previous ride's end time. LAG functions are window functions so it is immediately followed with an OVER clause, in which I filled in the designations from the directions about partitioning by taxi_id and ordering by trip_start_timestamp to find the time difference per ride for each taxi's rides in order of trip start time. WHERE filters so that the query only returns rides started on October 3 2013 and lastly, I ordered results by taxi_id.
 ## Nested and Repeated Data
-This section uses the github_repos public dataset available on BigQuery
-To query repeated data the column containing that data needs to be used with the UNNEST function
-STRCTs are used to avoid expensive JOINs
+This section uses the github_repos public dataset available on BigQuery.
+To query repeated data the column containing that data needs to be used with the UNNEST function.
+STRUCTs are used to avoid expensive JOINs.
+#### Question 1
+Who had the most commits in 2016?
+Write a query to find the individuals with the most commits in this table in 2016. Your query should return a table with two columns:
+1. committer_name - contains the name of each individual with a commit (from 2016) in the table
+2. num_commits - shows the number of commits the individual has in the table (from 2016)
+Sort the table, so that people with more commits appear first.
+```
+SELECT
+  committer.name AS committer_name,
+  COUNT(commit) AS num_commits
+FROM `bigquery-public-data.github_repos.sample_commits`
+WHERE EXTRACT(YEAR from committer.date) > 2015 AND EXTRACT(YEAR from committer.date) < 2017
+GROUP BY committer_name
+ORDER BY num_commits DESC
+```
+Because the data in the committer field is stored as a RECORD data type, it must be specificied that we want to select name from the committer field (committer.name). This query counts the number of commits, groups by committer_name, and orders by number of commits in descending order so that the committers with the most commits appear first.
+#### Question 2
+Write a query to leverage the information in the languages table to determine which programming languages appear in the most repositories. The table returned by your query should have two columns:
+1. language_name - the name of the programming language
+2. num_repos - the number of repositories in the languages table that use the programming language
+Sort the table so that languages that appear in more repos are shown first.
+```
+SELECT 
+  l.name AS language_name,
+  COUNT(repo_name) AS num_repos
+FROM `bigquery-public-data.github_repos.languages`,
+UNNEST(language) as l
+GROUP BY language_name
+ORDER BY num_repos DESC
+```
+To return the desired results I needed to flatten the language column (an ARRAY) using UNNEST.
+#### Question 3
+Which languages are used in the repository with the most languages?
+For this question, you'll restrict your attention to the repository with name 'polyrabbit/polyglot'
+Write a query that returns a table with one row for each language in this repository. The table should have two columns:
+1. name - the name of the programming language
+2. bytes - the total number of bytes of that programming language
+Sort the table by the bytes column so that programming languages that take up more space in the repo appear first.
+```
+SELECT 
+  l.name AS name,
+  l.bytes AS bytes
+FROM `bigquery-public-data.github_repos.languages`,
+UNNEST(language) as l
+WHERE repo_name = 'polyrabbit/polyglot'
+ORDER BY bytes DESC
+```
+Similar to in question 2, data from the language column had to be unnested. With that in mind, the rest of the query is quite simple as we just needed to call for the name and bytes data where repo_name is polyrabbit/polyglot and order it by bytes in descending order so that the language types with the most bytes appear first
+## Writing Efficient Queries
+There are functions that exist to help compare the efficiency of different queries - optimizing a query can save companies time and money. Two helpful functions for this are:
+1. show_amount_of_data_scanned() which shows the amount of data the query uses
+2. show_time_to_run() which prints how long it takes for the query to execute
+Tips to optimize query efficiency:
+- only select rows that need to be returned (as opposed to SELECT * FROM dataset)
+- read less data
+- avoid N:N JOINs
